@@ -271,6 +271,94 @@ export const checkStorefrontStock = createServerFn({ method: "POST" })
 
 
 
+
+/**
+ * Live quote of the storefront cart — the ONLY discount logic in the manual
+ * order is the agent's own offer engine (`quoteManualOrder`). Nothing here
+ * decides eligibility on its own; this is a read-only preview and the exact
+ * same computation is re-run at order creation time, so an offer that ends in
+ * between is never applied.
+ */
+export const quoteStorefrontCart = createServerFn({ method: "POST" })
+  .inputValidator((d: { slug: string; items: CartItemInput[]; shipping_rate_id?: string | null }) => {
+    if (!d?.slug) throw new Error("Missing slug.");
+    return d;
+  })
+  .handler(async ({ data }): Promise<StorefrontQuote> => {
+    const { getSupabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { quoteManualOrder } = await import("@/lib/manual-order-offers.server");
+    const admin = getSupabaseAdmin();
+
+    const { data: merchant } = await admin
+      .from("merchants")
+      .select("id, user_id")
+      .eq("brand_slug", data.slug.toLowerCase())
+      .maybeSingle();
+    if (!merchant?.id) throw new Error("Store not found.");
+    const merchantId = String(merchant.id);
+    const userId = (merchant as any).user_id ? String((merchant as any).user_id) : null;
+
+    let shipping = 0;
+    let shippingCurrency: string | null = null;
+    if (data.shipping_rate_id && userId) {
+      const { data: sh } = await admin
+        .from("shipping_rates")
+        .select("price, currency")
+        .eq("id", data.shipping_rate_id)
+        .eq("user_id", userId)
+        .eq("is_published", true)
+        .maybeSingle();
+      const p = Number((sh as any)?.price ?? 0);
+      shipping = Number.isFinite(p) && p > 0 ? p : 0;
+      shippingCurrency = (sh as any)?.currency ?? null;
+    }
+
+    const customerKeys = await storefrontCustomerKeys(merchantId, null);
+    const items = (data.items ?? []).map((it) => ({
+      product_name: it.name,
+      color: it.color ?? null,
+      size: it.size ?? null,
+      quantity: Math.max(1, Math.floor(Number(it.quantity) || 1)),
+    }));
+    const quote = userId
+      ? await quoteManualOrder(admin as any, { userId, customerKeys, items })
+      : null;
+
+    const subtotal = quote?.subtotal ?? 0;
+    const discount = quote?.discount_total ?? 0;
+    const afterDiscount = Math.round((subtotal - discount) * 100) / 100;
+    return {
+      subtotal,
+      discount,
+      subtotalAfterDiscount: afterDiscount,
+      shipping,
+      total: Math.round((afterDiscount + shipping) * 100) / 100,
+      currency: quote?.currency ?? shippingCurrency,
+      offers: (quote?.applied_offers ?? []) as StorefrontAppliedOffer[],
+    };
+  });
+
+/**
+ * Every identity this customer may have redeemed an offer under, so a
+ * "once per customer" offer can never come back for the same person.
+ */
+async function storefrontCustomerKeys(
+  merchantId: string,
+  phone: string | null,
+): Promise<string[]> {
+  const keys: string[] = [];
+  try {
+    const { getCurrentCustomerSession } = await import("@/lib/customer-auth.server");
+    const s = await getCurrentCustomerSession();
+    if (s && s.merchantId === merchantId) keys.push(`c:${s.customerId}`);
+  } catch {
+    /* signed out — phone only */
+  }
+  const p = (phone ?? "").trim();
+  if (p) keys.push(`p:${p}`);
+  return keys;
+}
+
 /**
  * Creates a storefront order through the SAME atomic path the chat agent uses:
  * `create_order_with_stock` locks the matching product_variants rows, verifies
