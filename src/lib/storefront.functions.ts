@@ -179,11 +179,38 @@ export interface StorefrontOrderShortage {
   requested: number | null;
   available: number | null;
 }
+/** One applied offer, as the customer-facing screens may show it. */
+export interface StorefrontAppliedOffer {
+  offer_id: string;
+  title: string;
+  discount_amount: number;
+  ends_at: string | null;
+  remaining: number | null;
+  usage_limit_type: "once_per_customer" | "per_order";
+  min_order_total: number | null;
+  display_fields: string[];
+}
+
+/** Live quote of the cart, produced by the SAME engine the agent uses. */
+export interface StorefrontQuote {
+  /** Products total BEFORE any discount. */
+  subtotal: number;
+  discount: number;
+  /** Products total AFTER the discount (shipping excluded). */
+  subtotalAfterDiscount: number;
+  shipping: number;
+  total: number;
+  currency: string | null;
+  offers: StorefrontAppliedOffer[];
+}
+
 export type StorefrontOrderResult =
   | {
       ok: true;
       orderNumber: string;
       subtotal: number;
+      discount: number;
+      offers: StorefrontAppliedOffer[];
       shipping: number;
       total: number;
       currency: string | null;
