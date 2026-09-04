@@ -69,6 +69,8 @@ export interface OfferInput {
   is_active?: boolean;
   notify_enabled?: boolean;
   notify_message?: string | null;
+  /** Extra facts shown next to the discount on customer-facing screens. */
+  display_fields?: string[] | null;
 }
 
 export const listOffers = createServerFn({ method: "GET" }).handler(
@@ -213,15 +215,38 @@ export const saveOffer = createServerFn({ method: "POST" })
       is_active: data.is_active !== false,
       notify_enabled: data.notify_enabled === true,
       notify_message: String(data.notify_message ?? "").trim() || null,
+      display_fields: Array.isArray(data.display_fields)
+        ? data.display_fields.map(String)
+        : [],
       updated_at: new Date().toISOString(),
     };
 
+    // Databases where the display_fields migration has not run yet must keep
+    // saving offers normally: the column is simply dropped from the write.
+    const { display_fields: _df, ...rowWithoutDisplay } = row as Record<string, unknown>;
+    const missingColumn = (e: unknown) =>
+      /display_fields/i.test(String((e as any)?.message ?? ""));
+
     let id = String(data.id ?? "").trim();
     if (id) {
-      const { error } = await admin.from("offers").update(row).eq("id", id).eq("user_id", userId);
+      let { error } = await admin.from("offers").update(row).eq("id", id).eq("user_id", userId);
+      if (error && missingColumn(error)) {
+        ({ error } = await admin
+          .from("offers")
+          .update(rowWithoutDisplay)
+          .eq("id", id)
+          .eq("user_id", userId));
+      }
       if (error) throw new Error(error.message);
     } else {
-      const { data: ins, error } = await admin.from("offers").insert(row).select("*").single();
+      let { data: ins, error } = await admin.from("offers").insert(row).select("*").single();
+      if (error && missingColumn(error)) {
+        ({ data: ins, error } = await admin
+          .from("offers")
+          .insert(rowWithoutDisplay)
+          .select("*")
+          .single());
+      }
       if (error) throw new Error(error.message);
       id = String((ins as any).id);
     }
