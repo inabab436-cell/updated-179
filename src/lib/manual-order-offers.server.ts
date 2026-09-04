@@ -19,21 +19,14 @@
 import type { OfferRow } from "@/lib/offers.server";
 import type { PricingProduct, RawOrderItem, OrderPricing } from "@/lib/order-pricing.server";
 
-/** Extra facts the merchant chose to show next to the discount. */
-export type OfferDisplayField =
-  | "title"
-  | "countdown"
-  | "remaining"
-  | "usage_type"
-  | "min_order_total";
+import {
+  OFFER_DISPLAY_FIELDS,
+  normalizeDisplayFields,
+  type OfferDisplayField,
+} from "@/lib/offer-display-fields";
 
-export const OFFER_DISPLAY_FIELDS: Array<{ key: OfferDisplayField; label: string }> = [
-  { key: "title", label: "اسم العرض" },
-  { key: "countdown", label: "العد التنازلي لانتهاء العرض" },
-  { key: "remaining", label: "عدد المستفيدين/الاستخدامات المتبقية" },
-  { key: "usage_type", label: "نوع الاستخدام (مرة لكل عميل / كل أوردر)" },
-  { key: "min_order_total", label: "الحد الأدنى للطلب" },
-];
+export { OFFER_DISPLAY_FIELDS };
+export type { OfferDisplayField };
 
 /** What the customer-facing screens may show about ONE applied offer. */
 export interface AppliedOfferView {
@@ -78,12 +71,7 @@ export function remainingSeats(o: OfferRow): number | null {
 }
 
 export function offerDisplayFields(o: OfferRow): OfferDisplayField[] {
-  const raw = (o as unknown as { display_fields?: unknown }).display_fields;
-  const allowed = new Set(OFFER_DISPLAY_FIELDS.map((f) => f.key));
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .map((v) => String(v) as OfferDisplayField)
-    .filter((v) => allowed.has(v));
+  return normalizeDisplayFields((o as unknown as { display_fields?: unknown }).display_fields);
 }
 
 /** Catalogue read used for pricing (canonical variant prices first). */
