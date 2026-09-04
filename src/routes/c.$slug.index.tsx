@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { CartProvider, useCart } from "@/lib/cart";
 import { CustomerAuthGate, useCustomerSession } from "@/components/customer/customer-login";
-import { getStorefront, createStorefrontOrder, checkStorefrontStock, type StorefrontData } from "@/lib/storefront.functions";
+import { getStorefront, createStorefrontOrder, checkStorefrontStock, quoteStorefrontCart, type StorefrontData, type StorefrontAppliedOffer } from "@/lib/storefront.functions";
 import { saveCustomerDraft, clearCustomerDraft } from "@/lib/customer-orders.functions";
 import { THEMES } from "@/components/website/identity-section";
 
@@ -564,6 +564,74 @@ async function resolveVisitorId(slug: string): Promise<string | null> {
 }
 
 
+
+/** Live countdown to the end of an offer. */
+function OfferCountdown({ endsAt }: { endsAt: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const ms = Date.parse(endsAt) - now;
+  if (!Number.isFinite(ms) || ms <= 0) return <span>انتهى العرض</span>;
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    <span className="font-mono">
+      {d > 0 ? `${d} يوم · ` : ""}{pad(h)}:{pad(m)}:{pad(sec)}
+    </span>
+  );
+}
+
+/**
+ * The offer facts the MERCHANT chose to show next to the discount. The price
+ * before/after the discount and the discount value are always shown by the
+ * totals block; this only adds the optional extras.
+ */
+function AppliedOffers({ offers, currency }: { offers: StorefrontAppliedOffer[]; currency: string | null }) {
+  if (!offers.length) return null;
+  return (
+    <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs">
+      {offers.map((o) => {
+        const show = (k: string) => (o.display_fields ?? []).includes(k);
+        return (
+          <div key={o.offer_id} className="space-y-1">
+            <div className="flex justify-between gap-2 font-medium">
+              <span>{show("title") ? o.title || "عرض" : "خصم مطبّق"}</span>
+              <span>-{o.discount_amount.toFixed(2)} {currency ?? ""}</span>
+            </div>
+            {show("countdown") && o.ends_at && (
+              <div className="flex justify-between gap-2 text-muted-foreground">
+                <span>ينتهي خلال</span><OfferCountdown endsAt={o.ends_at} />
+              </div>
+            )}
+            {show("remaining") && o.remaining != null && (
+              <div className="flex justify-between gap-2 text-muted-foreground">
+                <span>المتبقي من العرض</span><span>{o.remaining}</span>
+              </div>
+            )}
+            {show("usage_type") && (
+              <div className="flex justify-between gap-2 text-muted-foreground">
+                <span>نوع الاستخدام</span>
+                <span>{o.usage_limit_type === "once_per_customer" ? "مرة واحدة لكل عميل" : "على كل أوردر"}</span>
+              </div>
+            )}
+            {show("min_order_total") && o.min_order_total != null && (
+              <div className="flex justify-between gap-2 text-muted-foreground">
+                <span>الحد الأدنى للطلب</span><span>{o.min_order_total} {currency ?? ""}</span>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function CartDrawer({
   slug, onClose, theme: _theme, merchantId, brandName, store,
 }: {
@@ -586,14 +654,43 @@ function CartDrawer({
     requiresPayment: boolean; paymentMethod: string | null;
     lines: Array<{ name: string; color: string | null; size: string | null; quantity: number; price: number | null; currency: string | null }>;
     shippingLabel: string | null; shippingPrice: number; subtotal: number;
+    discount: number; offers: StorefrontAppliedOffer[];
   } | null>(null);
   const [showDetails, setShowDetails] = useState(false);
 
   const shippingRow = store.shipping.find((s) => s.id === shippingId) ?? null;
   const shippingPrice = Number(shippingRow?.price ?? 0) || 0;
-  const currency = cart.currency ?? shippingRow?.currency ?? null;
-  const subtotal = cart.total;
-  const total = subtotal + shippingPrice;
+  const quoteFn = useServerFn(quoteStorefrontCart);
+  // The discount is NEVER computed in the browser: this is the same server
+  // engine the agent uses, and it is re-run authoritatively when the order is
+  // created.
+  const quoteQuery = useQuery({
+    queryKey: [
+      "storefront-quote",
+      slug,
+      shippingId,
+      cart.lines.map((l) => `${l.productId}:${l.color ?? ""}:${l.size ?? ""}:${l.quantity}`).join("|"),
+    ],
+    enabled: cart.lines.length > 0,
+    queryFn: () =>
+      quoteFn({
+        data: {
+          slug,
+          shipping_rate_id: shippingId,
+          items: cart.lines.map((l) => ({
+            productId: l.productId, name: l.name, price: l.price,
+            currency: l.currency, quantity: l.quantity,
+            color: l.color ?? null, size: l.size ?? null,
+          })),
+        },
+      }),
+  });
+  const quote = quoteQuery.data ?? null;
+  const currency = quote?.currency ?? cart.currency ?? shippingRow?.currency ?? null;
+  const subtotal = quote?.subtotal ?? cart.total;
+  const discount = quote?.discount ?? 0;
+  const appliedOffers = quote?.offers ?? [];
+  const total = quote?.total ?? subtotal + shippingPrice;
   const chosenMethod = store.paymentMethods.find((m) => m.name === paymentName) ?? null;
   const manualChosen = chosenMethod?.behavior === "manual";
 
@@ -644,7 +741,9 @@ function CartDrawer({
           ? [shippingRow.country, shippingRow.region].filter(Boolean).join(" / ") || "الشحن"
           : null,
         shippingPrice,
-        subtotal,
+        subtotal: res.subtotal,
+        discount: res.discount,
+        offers: res.offers,
       });
       setShowDetails(false);
       cart.clear();
@@ -754,7 +853,19 @@ function CartDrawer({
                       </li>
                     ))}
                   </ul>
-                  <div className="flex justify-between border-t pt-1"><span className="text-muted-foreground">إجمالي المنتجات</span><span>{receipt.subtotal.toFixed(2)} {receipt.currency ?? ""}</span></div>
+                  <div className="flex justify-between border-t pt-1"><span className="text-muted-foreground">السعر قبل الخصم</span><span>{receipt.subtotal.toFixed(2)} {receipt.currency ?? ""}</span></div>
+                  {receipt.discount > 0 && (
+                    <>
+                      <div className="flex justify-between text-primary">
+                        <span>قيمة الخصم</span><span>-{receipt.discount.toFixed(2)} {receipt.currency ?? ""}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">السعر بعد الخصم</span>
+                        <span>{(receipt.subtotal - receipt.discount).toFixed(2)} {receipt.currency ?? ""}</span>
+                      </div>
+                      <AppliedOffers offers={receipt.offers} currency={receipt.currency} />
+                    </>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">الشحن {receipt.shippingLabel ? `(${receipt.shippingLabel})` : ""}</span>
                     <span>{receipt.shippingPrice.toFixed(2)} {receipt.currency ?? ""}</span>
@@ -862,7 +973,18 @@ function CartDrawer({
                 ))}
               </ul>
               <div className="space-y-1">
-                <div className="flex justify-between"><span className="text-muted-foreground">إجمالي المنتجات</span><span>{subtotal.toFixed(2)} {currency ?? ""}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">السعر قبل الخصم</span><span>{subtotal.toFixed(2)} {currency ?? ""}</span></div>
+                {discount > 0 && (
+                  <>
+                    <div className="flex justify-between text-primary">
+                      <span>قيمة الخصم</span><span>-{discount.toFixed(2)} {currency ?? ""}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">السعر بعد الخصم</span>
+                      <span>{(subtotal - discount).toFixed(2)} {currency ?? ""}</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">الشحن {shippingRow ? `(${[shippingRow.country, shippingRow.region].filter(Boolean).join(" / ")})` : ""}</span>
                   <span>{shippingPrice.toFixed(2)} {currency ?? ""}</span>
@@ -880,6 +1002,8 @@ function CartDrawer({
 
                 )}
               </div>
+
+              <AppliedOffers offers={appliedOffers} currency={currency} />
 
               {merchantId ? (
                 <CustomerAuthGate merchantId={merchantId} brandName={brandName} themePrimary={_theme?.primary}>
