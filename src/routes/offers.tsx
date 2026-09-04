@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { OFFER_DISPLAY_FIELDS, normalizeDisplayFields } from "@/lib/offer-display-fields";
 import { Textarea } from "@/components/ui/textarea";
 import {
   DEFAULT_OFFER_BROADCAST,
@@ -105,6 +106,7 @@ function emptyForm(): FormState {
     is_active: true,
     notify_enabled: false,
     notify_message: DEFAULT_OFFER_BROADCAST,
+    display_fields: [],
   };
 }
 
@@ -377,6 +379,7 @@ function OffersPage() {
       is_active: o.is_active,
       notify_enabled: o.notify_enabled,
       notify_message: o.notify_message ?? DEFAULT_OFFER_BROADCAST,
+      display_fields: normalizeDisplayFields((o as any).display_fields),
     });
     setOpen(true);
   }
@@ -577,6 +580,39 @@ function OffersPage() {
                 placeholder="شروط أو تفاصيل إضافية يعرفها الوكيل الذكي."
               />
               
+            </div>
+          </div>
+
+          <div className="space-y-3 rounded-xl border border-border/60 p-3">
+            <div>
+              <div className="text-sm font-semibold">المعلومات اللي تظهر جنب الخصم للعميل</div>
+              <div className="text-xs text-muted-foreground">
+                السعر قبل الخصم، السعر بعد الخصم وقيمة الخصم بتظهر دائماً. اختر أي معلومات إضافية تحب تظهر
+                للعميل في صفحة الأوردر.
+              </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {OFFER_DISPLAY_FIELDS.map((f) => {
+                const selected = (form.display_fields ?? []).includes(f.key);
+                return (
+                  <label
+                    key={f.key}
+                    className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 text-sm ${selected ? "border-primary bg-primary/5" : "border-border/60"}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={(e) => {
+                        const current = new Set(form.display_fields ?? []);
+                        if (e.target.checked) current.add(f.key);
+                        else current.delete(f.key);
+                        setForm({ ...form, display_fields: Array.from(current) });
+                      }}
+                    />
+                    <span>{f.label}</span>
+                  </label>
+                );
+              })}
             </div>
           </div>
 

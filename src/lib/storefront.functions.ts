@@ -179,11 +179,38 @@ export interface StorefrontOrderShortage {
   requested: number | null;
   available: number | null;
 }
+/** One applied offer, as the customer-facing screens may show it. */
+export interface StorefrontAppliedOffer {
+  offer_id: string;
+  title: string;
+  discount_amount: number;
+  ends_at: string | null;
+  remaining: number | null;
+  usage_limit_type: "once_per_customer" | "per_order";
+  min_order_total: number | null;
+  display_fields: string[];
+}
+
+/** Live quote of the cart, produced by the SAME engine the agent uses. */
+export interface StorefrontQuote {
+  /** Products total BEFORE any discount. */
+  subtotal: number;
+  discount: number;
+  /** Products total AFTER the discount (shipping excluded). */
+  subtotalAfterDiscount: number;
+  shipping: number;
+  total: number;
+  currency: string | null;
+  offers: StorefrontAppliedOffer[];
+}
+
 export type StorefrontOrderResult =
   | {
       ok: true;
       orderNumber: string;
       subtotal: number;
+      discount: number;
+      offers: StorefrontAppliedOffer[];
       shipping: number;
       total: number;
       currency: string | null;
@@ -243,6 +270,94 @@ export const checkStorefrontStock = createServerFn({ method: "POST" })
   );
 
 
+
+
+/**
+ * Live quote of the storefront cart — the ONLY discount logic in the manual
+ * order is the agent's own offer engine (`quoteManualOrder`). Nothing here
+ * decides eligibility on its own; this is a read-only preview and the exact
+ * same computation is re-run at order creation time, so an offer that ends in
+ * between is never applied.
+ */
+export const quoteStorefrontCart = createServerFn({ method: "POST" })
+  .inputValidator((d: { slug: string; items: CartItemInput[]; shipping_rate_id?: string | null }) => {
+    if (!d?.slug) throw new Error("Missing slug.");
+    return d;
+  })
+  .handler(async ({ data }): Promise<StorefrontQuote> => {
+    const { getSupabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { quoteManualOrder } = await import("@/lib/manual-order-offers.server");
+    const admin = getSupabaseAdmin();
+
+    const { data: merchant } = await admin
+      .from("merchants")
+      .select("id, user_id")
+      .eq("brand_slug", data.slug.toLowerCase())
+      .maybeSingle();
+    if (!merchant?.id) throw new Error("Store not found.");
+    const merchantId = String(merchant.id);
+    const userId = (merchant as any).user_id ? String((merchant as any).user_id) : null;
+
+    let shipping = 0;
+    let shippingCurrency: string | null = null;
+    if (data.shipping_rate_id && userId) {
+      const { data: sh } = await admin
+        .from("shipping_rates")
+        .select("price, currency")
+        .eq("id", data.shipping_rate_id)
+        .eq("user_id", userId)
+        .eq("is_published", true)
+        .maybeSingle();
+      const p = Number((sh as any)?.price ?? 0);
+      shipping = Number.isFinite(p) && p > 0 ? p : 0;
+      shippingCurrency = (sh as any)?.currency ?? null;
+    }
+
+    const customerKeys = await storefrontCustomerKeys(merchantId, null);
+    const items = (data.items ?? []).map((it) => ({
+      product_name: it.name,
+      color: it.color ?? null,
+      size: it.size ?? null,
+      quantity: Math.max(1, Math.floor(Number(it.quantity) || 1)),
+    }));
+    const quote = userId
+      ? await quoteManualOrder(admin as any, { userId, customerKeys, items })
+      : null;
+
+    const subtotal = quote?.subtotal ?? 0;
+    const discount = quote?.discount_total ?? 0;
+    const afterDiscount = Math.round((subtotal - discount) * 100) / 100;
+    return {
+      subtotal,
+      discount,
+      subtotalAfterDiscount: afterDiscount,
+      shipping,
+      total: Math.round((afterDiscount + shipping) * 100) / 100,
+      currency: quote?.currency ?? shippingCurrency,
+      offers: (quote?.applied_offers ?? []) as StorefrontAppliedOffer[],
+    };
+  });
+
+/**
+ * Every identity this customer may have redeemed an offer under, so a
+ * "once per customer" offer can never come back for the same person.
+ */
+async function storefrontCustomerKeys(
+  merchantId: string,
+  phone: string | null,
+): Promise<string[]> {
+  const keys: string[] = [];
+  try {
+    const { getCurrentCustomerSession } = await import("@/lib/customer-auth.server");
+    const s = await getCurrentCustomerSession();
+    if (s && s.merchantId === merchantId) keys.push(`c:${s.customerId}`);
+  } catch {
+    /* signed out — phone only */
+  }
+  const p = (phone ?? "").trim();
+  if (p) keys.push(`p:${p}`);
+  return keys;
+}
 
 /**
  * Creates a storefront order through the SAME atomic path the chat agent uses:
@@ -320,18 +435,6 @@ export const createStorefrontOrder = createServerFn({ method: "POST" })
       size: it.size ?? null,
     }));
 
-    const totals = computeOrderTotals(
-      items,
-      shippingRow?.price ?? null,
-      shippingRow?.currency ?? null,
-    );
-    const notes = buildOrderNotes({
-      customerNotes: data.notes,
-      shippingLabel,
-      paymentMethod: chosenMethod?.name ?? null,
-      totals,
-    });
-
     // No order can ever be created for an unregistered customer: the order is
     // always linked to the signed-in (email + OTP) customer of THIS merchant.
     let customerId: string | null = null;
@@ -341,6 +444,90 @@ export const createStorefrontOrder = createServerFn({ method: "POST" })
       if (s && s.merchantId === merchantId) customerId = s.customerId;
     } catch { /* handled below */ }
     if (!customerId) return { ok: false, error: "login_required" };
+
+    // ---- DISCOUNTS -------------------------------------------------------
+    // Re-evaluated HERE, at creation time, by the agent's own offer engine:
+    // offer state, time window, usage limits, customer eligibility, products
+    // and quantities. Whatever the browser was showing is irrelevant — if the
+    // offer ended or the customer is no longer eligible, no discount applies.
+    const { quoteManualOrder, claimOfferSeats } = await import(
+      "@/lib/manual-order-offers.server"
+    );
+    const customerKey = `c:${customerId}`;
+    const customerKeys = [customerKey, `p:${data.customer_phone.trim()}`];
+    const quoteItems = items.map((it) => ({
+      product_name: it.product_name,
+      color: it.color,
+      size: it.size,
+      quantity: it.quantity,
+    }));
+    let quote = userId
+      ? await quoteManualOrder(admin as any, { userId, customerKeys, items: quoteItems })
+      : null;
+
+    // The seats of every applied offer are reserved atomically (the database
+    // locks the offer rows), so simultaneous orders can never push a limited
+    // offer past its maximum. An offer that lost the race is dropped and the
+    // cart is re-priced without it.
+    if (quote && quote.applied_offers.length) {
+      const granted = await claimOfferSeats(admin as any, {
+        offerIds: quote.applied_offers.map((o) => o.offer_id),
+        customerKey,
+      });
+      if (granted.length !== quote.applied_offers.length && userId) {
+        quote = await quoteManualOrder(admin as any, {
+          userId,
+          customerKeys,
+          items: quoteItems,
+          restrictToOfferIds: granted,
+        });
+      }
+    }
+
+    // Catalogue prices win over anything the browser sent.
+    if (quote) {
+      for (let i = 0; i < items.length; i++) {
+        const priced = quote.pricing.items[i];
+        if (!priced) continue;
+        items[i].price = priced.unit_price;
+        (items[i] as any).unit_price = priced.unit_price;
+        (items[i] as any).line_total = priced.line_total;
+      }
+    }
+
+    const discount = quote?.discount_total ?? 0;
+    const baseTotals = computeOrderTotals(
+      items,
+      shippingRow?.price ?? null,
+      shippingRow?.currency ?? null,
+    );
+    const subtotalBefore = quote?.subtotal ?? baseTotals.subtotal;
+    const totals = {
+      ...baseTotals,
+      subtotal: subtotalBefore,
+      currency: quote?.currency ?? baseTotals.currency,
+      total: Math.round((subtotalBefore - discount + baseTotals.shipping) * 100) / 100,
+    };
+    const appliedOffers = (quote?.applied_offers ?? []) as StorefrontAppliedOffer[];
+    const appliedOfferIds = appliedOffers.map((o) => o.offer_id);
+
+    const notes = [
+      buildOrderNotes({
+        customerNotes: data.notes,
+        shippingLabel,
+        paymentMethod: chosenMethod?.name ?? null,
+        totals: { ...totals, subtotal: subtotalBefore },
+      }),
+      discount > 0
+        ? `الخصم: ${discount} ${totals.currency ?? ""}`.trim() +
+          (appliedOffers.length
+            ? `\nالعروض المطبّقة: ${appliedOffers.map((o) => o.title).join("، ")}`
+            : "")
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n")
+      .slice(0, 2000);
 
     // Manual payment method → NOTHING is deducted now. The order is stored as
     // payment_status = 'pending' and stock is only taken when the merchant
@@ -398,6 +585,27 @@ export const createStorefrontOrder = createServerFn({ method: "POST" })
       });
     } catch { /* non-fatal */ }
 
+    // The order carries its REAL numbers and the offers that priced it, so the
+    // discount can never be recomputed differently later and the beneficiary
+    // is recorded even if the offer ends before the payment is confirmed.
+    try {
+      await admin
+        .from("orders")
+        .update({ total_price: totals.total })
+        .eq("order_number", orderNumber);
+      await admin
+        .from("orders")
+        .update({
+          subtotal_price: subtotalBefore,
+          discount_amount: discount,
+          shipping_cost: totals.shipping,
+          applied_offer_ids: appliedOfferIds,
+        })
+        .eq("order_number", orderNumber);
+    } catch {
+      /* breakdown columns not present yet */
+    }
+
     // Auto payment method → order stored as paid at creation, so it never goes
     // through the merchant's payment confirmation. Count the offer here.
     if (!isManual) {
@@ -449,7 +657,9 @@ export const createStorefrontOrder = createServerFn({ method: "POST" })
     return {
       ok: true,
       orderNumber,
-      subtotal: totals.subtotal,
+      subtotal: subtotalBefore,
+      discount,
+      offers: appliedOffers,
       shipping: totals.shipping,
       total: totals.total,
       currency: totals.currency,

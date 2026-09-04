@@ -52,6 +52,8 @@ export interface OfferRow {
   notify_enabled: boolean;
   notify_message: string | null;
   notified_at: string | null;
+  /** Extra facts the merchant chose to show next to the discount. */
+  display_fields?: string[];
 }
 
 /** How long ago a finished offer ended. */
@@ -104,6 +106,7 @@ export function mapOfferRow(r: Record<string, unknown>): OfferRow {
     notify_enabled: r.notify_enabled === true,
     notify_message: (r.notify_message as string | null) ?? null,
     notified_at: (r.notified_at as string | null) ?? null,
+    display_fields: Array.isArray(r.display_fields) ? (r.display_fields as string[]).map(String) : [],
   };
 }
 
@@ -212,9 +215,9 @@ export async function loadOffers(
   try {
     const { data } = await admin
       .from("offers")
-      .select(
-        "id, title, description, scope, product_id, discount_type, discount_value, coupon_code, min_order_total, max_redemptions, redemption_count, beneficiary_count, usage_limit_type, starts_at, ends_at, is_active, notify_enabled, notify_message, notified_at",
-      )
+      // "*" so an added column (display_fields) is picked up without the read
+      // failing on databases where the migration has not run yet.
+      .select("*")
       .eq("user_id", userId);
     const rows = ((data ?? []) as Record<string, unknown>[]).map(mapOfferRow);
 
