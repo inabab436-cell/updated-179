@@ -35,7 +35,7 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 type NavItem = {
-  to: "/products" | "/orders" | "/policies" | "/shipping" | "/contacts" | "/published";
+  to: "/products" | "/orders" | "/policies" | "/shipping" | "/contacts" | "/published" | "/earnings";
   badgeKey?: "awaiting_payment";
   title: string;
   desc: string;
@@ -47,6 +47,7 @@ const NAV: NavItem[] = [
   { to: "/products", title: "المخزون", desc: "منتجاتك، الألوان، المقاسات، والكميات. أضف منتج جديد يدوياً أو استعرض المخزون الحالي.", icon: <Package className="h-5 w-5" /> },
   { to: "/offers" as any, title: "العروض والخصومات", desc: "عروض على منتج محدد أو على كل المنتجات، بمدة زمنية حقيقية ورسالة تلقائية اختيارية للعملاء.", icon: <BadgePercent className="h-5 w-5" /> },
   { to: "/orders", title: "الطلبات", desc: "متابعة الطلبات وتحديث حالة الشحن والتسليم.", icon: <ShoppingBag className="h-5 w-5" /> },
+  { to: "/earnings", title: "الأرباح", desc: "نظرة مالية سريعة على أداء متجرك.", icon: <TrendingUp className="h-5 w-5" /> },
   { to: "/policies", title: "السياسات", desc: "الشحن، الإرجاع، الشروط، والخصوصية.", icon: <ScrollText className="h-5 w-5" /> },
   { to: "/shipping", title: "جدول الشحن", desc: "أسعار الشحن حسب الدولة والمنطقة.", icon: <Truck className="h-5 w-5" /> },
   { to: "/contacts", title: "معلومات التواصل", desc: "الهاتف، البريد، والعناوين ووسائل التواصل.", icon: <PhoneCall className="h-5 w-5" /> },
