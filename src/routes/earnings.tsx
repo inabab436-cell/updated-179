@@ -51,6 +51,18 @@ function EarningsPage() {
 
       {q.isLoading ? (
         <LoadingMetrics />
+      ) : q.isError ? (
+        <SurfaceCard className="flex flex-col items-center justify-center gap-4 p-12 text-center">
+          <div className="grid h-16 w-16 place-items-center rounded-2xl bg-destructive/10 text-destructive">
+            <TrendingUp className="h-7 w-7" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold">تعذر تحميل البيانات</h2>
+            <p className="mt-1 max-w-md text-sm text-muted-foreground">
+              {(q.error as Error)?.message || "حدث خطأ أثناء جلب نظرتك المالية."}
+            </p>
+          </div>
+        </SurfaceCard>
       ) : !data || data.orderCount === 0 ? (
         <SurfaceCard className="flex flex-col items-center justify-center gap-4 p-12 text-center">
           <div className="grid h-16 w-16 place-items-center rounded-2xl bg-gradient-brand text-primary-foreground shadow-glow">
