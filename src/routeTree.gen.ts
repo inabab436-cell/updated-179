@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AwaitingPaymentRouteImport } from './routes/awaiting-payment'
 import { Route as ContactsRouteImport } from './routes/contacts'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as EarningsRouteImport } from './routes/earnings'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ManualEntryRouteImport } from './routes/manual-entry'
@@ -55,6 +56,11 @@ const ContactsRoute = ContactsRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EarningsRoute = EarningsRouteImport.update({
+  id: '/earnings',
+  path: '/earnings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
@@ -178,6 +184,7 @@ export interface FileRoutesByFullPath {
   '/awaiting-payment': typeof AwaitingPaymentRoute
   '/contacts': typeof ContactsRoute
   '/dashboard': typeof DashboardRoute
+  '/earnings': typeof EarningsRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/manual-entry': typeof ManualEntryRoute
@@ -207,6 +214,7 @@ export interface FileRoutesByTo {
   '/awaiting-payment': typeof AwaitingPaymentRoute
   '/contacts': typeof ContactsRoute
   '/dashboard': typeof DashboardRoute
+  '/earnings': typeof EarningsRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/manual-entry': typeof ManualEntryRoute
@@ -236,6 +244,7 @@ export interface FileRoutesById {
   '/awaiting-payment': typeof AwaitingPaymentRoute
   '/contacts': typeof ContactsRoute
   '/dashboard': typeof DashboardRoute
+  '/earnings': typeof EarningsRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/manual-entry': typeof ManualEntryRoute
@@ -267,6 +276,7 @@ export interface FileRouteTypes {
     | '/awaiting-payment'
     | '/contacts'
     | '/dashboard'
+    | '/earnings'
     | '/forgot-password'
     | '/login'
     | '/manual-entry'
@@ -296,6 +306,7 @@ export interface FileRouteTypes {
     | '/awaiting-payment'
     | '/contacts'
     | '/dashboard'
+    | '/earnings'
     | '/forgot-password'
     | '/login'
     | '/manual-entry'
@@ -324,6 +335,7 @@ export interface FileRouteTypes {
     | '/awaiting-payment'
     | '/contacts'
     | '/dashboard'
+    | '/earnings'
     | '/forgot-password'
     | '/login'
     | '/manual-entry'
@@ -354,6 +366,7 @@ export interface RootRouteChildren {
   AwaitingPaymentRoute: typeof AwaitingPaymentRoute
   ContactsRoute: typeof ContactsRoute
   DashboardRoute: typeof DashboardRoute
+  EarningsRoute: typeof EarningsRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   ManualEntryRoute: typeof ManualEntryRoute
@@ -405,6 +418,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/earnings': {
+      id: '/earnings'
+      path: '/earnings'
+      fullPath: '/earnings'
+      preLoaderRoute: typeof EarningsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/forgot-password': {
@@ -588,6 +608,7 @@ const rootRouteChildren: RootRouteChildren = {
   AwaitingPaymentRoute: AwaitingPaymentRoute,
   ContactsRoute: ContactsRoute,
   DashboardRoute: DashboardRoute,
+  EarningsRoute: EarningsRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   ManualEntryRoute: ManualEntryRoute,
