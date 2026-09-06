@@ -5,7 +5,7 @@ import {
   Package, ScrollText, Truck, PhoneCall, Globe, ArrowLeft,
   Bell, CreditCard, AlertTriangle, ShoppingBag, UserRound, Check, HelpCircle,
   MessagesSquare, Clock4, Moon, BadgePercent,
-  ShieldAlert, MailCheck,
+  ShieldAlert, MailCheck, TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
 
