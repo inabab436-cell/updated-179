@@ -110,6 +110,64 @@ export const listOrders = createServerFn({ method: "GET" }).handler(
   },
 );
 
+// ---------- EARNINGS SUMMARY ----------------------------------------------
+export interface EarningsSummary {
+  orderCount: number;
+  /** Net profit from fully settled orders (delivered + paid), after shipping. */
+  totalProfit: number;
+  /** Net earnings from orders still in flight, after shipping. */
+  pendingProfit: number;
+  currency: string;
+}
+
+export const getEarningsSummary = createServerFn({ method: "GET" }).handler(
+  async (): Promise<EarningsSummary> => {
+    const { requireUserId } = await import("@/lib/session-guard.server");
+    const { getSupabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { userId } = await requireUserId();
+    const merchantId = await getMerchantId(userId);
+    if (!merchantId) return { orderCount: 0, totalProfit: 0, pendingProfit: 0, currency: "" };
+    const admin = getSupabaseAdmin();
+    const { data, error } = await admin
+      .from("orders")
+      .select("*")
+      .eq("merchant_id", merchantId)
+      .neq("status", "cancelled")
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+
+    let orderCount = 0;
+    let totalProfit = 0;
+    let pendingProfit = 0;
+    let currency = "";
+
+    for (const r of data ?? []) {
+      orderCount += 1;
+      const items = Array.isArray(r.items) ? r.items : [];
+      const total = Number(r.total_price ?? 0) || 0;
+      const shipping = Number(r.shipping_cost ?? 0) || 0;
+      const net = Math.max(0, total - shipping);
+      const isSettled = r.status === "delivered" && r.payment_status === "confirmed";
+      if (isSettled) {
+        totalProfit += net;
+      } else {
+        pendingProfit += net;
+      }
+      if (!currency) {
+        const c = items.find((i: any) => (i.currency ?? "").trim())?.currency;
+        if (c) currency = c;
+      }
+    }
+
+    return {
+      orderCount,
+      totalProfit: Math.round(totalProfit * 100) / 100,
+      pendingProfit: Math.round(pendingProfit * 100) / 100,
+      currency,
+    };
+  },
+);
+
 // ---------- CONFIRM MANUAL PAYMENT ---------------------------------------
 /**
  * Merchant confirms a manual payment. The DB re-verifies the LATEST stock and
