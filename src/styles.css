@@ -238,3 +238,15 @@
 @utility shadow-card {
   box-shadow: var(--shadow-card);
 }
+
+@utility bg-gradient-chat {
+  background-image: var(--gradient-chat);
+}
+
+@utility bg-gradient-earn {
+  background-image: var(--gradient-earn);
+}
+
+@utility shadow-mint {
+  box-shadow: var(--shadow-mint);
+}
