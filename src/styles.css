@@ -59,21 +59,7 @@
   --color-brand-teal: var(--brand-teal);
   --color-brand-violet: var(--brand-violet);
   --color-brand-blue: var(--brand-blue);
-  --color-success: var(--success);
-  --color-success-foreground: var(--success-foreground);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
-  --color-info: var(--info);
-  --color-info-foreground: var(--info-foreground);
-  --color-chat-ink: var(--chat-ink);
-  --color-chat-panel: var(--chat-panel);
-  --color-chat-line: var(--chat-line);
-  --color-chat-accent: var(--chat-accent);
-  --color-chat-accent-foreground: var(--chat-accent-foreground);
-  --color-chat-muted: var(--chat-muted);
-  --color-chat-foreground: var(--chat-foreground);
 }
-
 
 :root {
   --radius: 0.875rem;
@@ -124,37 +110,14 @@
   --sidebar-border: oklch(0.92 0.012 260);
   --sidebar-ring: oklch(0.62 0.20 288);
 
-  /* Status accents (orders / earnings) */
-  --success: oklch(0.62 0.14 165);
-  --success-foreground: oklch(0.99 0.005 250);
-  --warning: oklch(0.72 0.15 68);
-  --warning-foreground: oklch(0.24 0.05 60);
-  --info: oklch(0.62 0.14 235);
-  --info-foreground: oklch(0.99 0.005 250);
-
-  /* Chat surface — deliberately its own dark "ink + mint" identity */
-  --chat-ink: oklch(0.21 0.045 258);
-  --chat-panel: oklch(0.26 0.05 260);
-  --chat-line: oklch(1 0 0 / 12%);
-  --chat-accent: oklch(0.84 0.15 172);
-  --chat-accent-foreground: oklch(0.22 0.06 190);
-  --chat-muted: oklch(0.76 0.03 255);
-  --chat-foreground: oklch(0.97 0.01 250);
-
   /* Premium gradients & shadows */
   --gradient-brand: linear-gradient(135deg, oklch(0.82 0.11 195) 0%, oklch(0.68 0.14 250) 50%, oklch(0.62 0.20 288) 100%);
   --gradient-surface: radial-gradient(1200px 600px at 100% -10%, color-mix(in oklab, oklch(0.82 0.11 195) 18%, transparent), transparent 60%),
                       radial-gradient(900px 500px at -10% 110%, color-mix(in oklab, oklch(0.62 0.20 288) 18%, transparent), transparent 55%);
-  --gradient-chat: radial-gradient(900px 500px at 100% -10%, color-mix(in oklab, var(--chat-accent) 22%, transparent), transparent 60%),
-                   radial-gradient(700px 500px at -10% 110%, color-mix(in oklab, oklch(0.62 0.20 288) 26%, transparent), transparent 55%),
-                   linear-gradient(170deg, oklch(0.23 0.05 262) 0%, oklch(0.18 0.04 268) 100%);
-  --gradient-earn: linear-gradient(140deg, oklch(0.30 0.07 258) 0%, oklch(0.24 0.06 268) 55%, oklch(0.26 0.09 288) 100%);
   --shadow-elegant: 0 1px 2px oklch(0.22 0.04 275 / 0.04), 0 8px 24px -12px oklch(0.55 0.20 288 / 0.18);
   --shadow-glow: 0 20px 60px -20px oklch(0.62 0.20 288 / 0.35);
   --shadow-card: 0 1px 0 oklch(1 0 0 / 0.6) inset, 0 1px 2px oklch(0.22 0.04 275 / 0.04), 0 6px 20px -10px oklch(0.22 0.04 275 / 0.08);
-  --shadow-mint: 0 18px 50px -18px oklch(0.84 0.15 172 / 0.45);
 }
-
 
 .dark {
   --background: oklch(0.18 0.03 275);
@@ -189,12 +152,6 @@
   --sidebar-accent-foreground: oklch(0.97 0.008 250);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.72 0.17 288);
-  --success: oklch(0.72 0.14 165);
-  --success-foreground: oklch(0.18 0.04 190);
-  --warning: oklch(0.80 0.14 70);
-  --warning-foreground: oklch(0.22 0.05 60);
-  --info: oklch(0.72 0.13 235);
-  --info-foreground: oklch(0.18 0.04 250);
   --shadow-elegant: 0 1px 2px oklch(0 0 0 / 0.4), 0 8px 24px -12px oklch(0.62 0.20 288 / 0.35);
   --shadow-glow: 0 20px 60px -20px oklch(0.72 0.17 288 / 0.45);
   --shadow-card: 0 1px 0 oklch(1 0 0 / 0.05) inset, 0 1px 2px oklch(0 0 0 / 0.4), 0 6px 20px -10px oklch(0 0 0 / 0.4);
@@ -243,16 +200,4 @@
 
 @utility shadow-card {
   box-shadow: var(--shadow-card);
-}
-
-@utility bg-gradient-chat {
-  background-image: var(--gradient-chat);
-}
-
-@utility bg-gradient-earn {
-  background-image: var(--gradient-earn);
-}
-
-@utility shadow-mint {
-  box-shadow: var(--shadow-mint);
 }

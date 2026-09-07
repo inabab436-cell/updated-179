@@ -469,345 +469,228 @@ function ChatPage() {
   const disabled = sending || !callEdge || !merchantId || !loggedIn;
   const notFound = storefront.data && !storefront.data.found;
 
-  const products = storefront.data?.products ?? [];
-
   return (
-    <div dir="rtl" className="flex min-h-screen flex-col bg-gradient-chat text-chat-foreground">
-      <header className="sticky top-0 z-20 border-b border-chat-line bg-chat-ink/80 backdrop-blur-xl">
-        <div className="mx-auto grid w-full max-w-3xl grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3">
-          <div className="flex min-w-0 items-center gap-3">
+    <div dir="rtl" className="min-h-screen bg-gradient-surface flex flex-col">
+      <header className="sticky top-0 z-10 border-b border-border/60 bg-background/70 backdrop-blur-xl">
+        <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3 min-w-0">
             {storefront.data?.logoUrl ? (
-              <img
-                src={storefront.data.logoUrl}
-                alt={brandName}
-                className="h-10 w-10 shrink-0 rounded-2xl object-cover ring-2 ring-chat-accent/40"
-              />
+              <img src={storefront.data.logoUrl} alt={brandName} className="h-9 w-9 rounded-full object-cover" />
             ) : (
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-chat-accent text-sm font-bold text-chat-accent-foreground">
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-primary text-primary-foreground text-sm font-bold">
                 {String(brandName).slice(0, 1).toUpperCase()}
               </div>
             )}
-            <div className="min-w-0">
-              <div className="truncate text-sm font-bold tracking-tight">{brandName}</div>
-              <div className="flex items-center gap-1.5 text-[11px] text-chat-muted">
-                <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-chat-accent" />
-                متصل الآن
-              </div>
+            <div className="truncate">
+              <div className="text-sm font-semibold truncate">{brandName}</div>
+              <div className="text-[11px] text-muted-foreground">محادثة مباشرة</div>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="flex items-center gap-2">
             {loggedIn && (
-              <Button
-                asChild
-                variant="ghost"
-                size="icon"
-                className="text-chat-muted hover:bg-white/10 hover:text-chat-foreground"
-                title={customerEmail ?? "حسابي"}
-              >
-                <Link to="/c/$slug/account" params={{ slug }} aria-label="حسابي">
-                  <UserCircle2 className="h-5 w-5" />
+              <Button asChild variant="ghost" size="sm" title={customerEmail ?? ""}>
+                <Link to="/c/$slug/account" params={{ slug }}>
+                  <UserCircle2 className="ml-1 h-4 w-4" />
+                  حسابي
                 </Link>
               </Button>
             )}
-            <Button
-              asChild
-              variant="ghost"
-              size="icon"
-              className="text-chat-muted hover:bg-white/10 hover:text-chat-foreground"
-              title="العودة للمتجر"
-            >
-              <Link to="/c/$slug" params={{ slug }} aria-label="العودة للمتجر">
-                <ArrowRight className="h-5 w-5" />
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/c/$slug" params={{ slug }}>
+                <ArrowRight className="ml-1 h-4 w-4" />
+                العودة للمتجر
               </Link>
             </Button>
           </div>
         </div>
-
-        {loggedIn && products.length > 0 && (
-          <ProductRail
-            products={products}
-            onPick={(name) =>
-              setInput((v) => (v.trim() ? `${v.trim()} ${name}` : `مهتم بـ ${name}`))
-            }
-          />
-        )}
+        {/* No handoff/escalation banner is ever shown to the customer:
+            the experience must stay a single, seamless conversation. */}
       </header>
 
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-3 pb-3 pt-4 sm:px-4">
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 py-4">
         {notFound && (
-          <div className="rounded-3xl border border-chat-line bg-chat-panel/70 p-6 text-center text-sm text-chat-muted">
+          <div className="rounded-xl border bg-background/80 p-6 text-center text-sm text-muted-foreground">
             المتجر غير موجود.
           </div>
         )}
 
         {!notFound && merchantId && !loggedIn && !session.isLoading && (
           <div className="mx-auto w-full max-w-md py-6">
-            <div className="rounded-3xl bg-background p-1 text-foreground shadow-mint">
-              <CustomerLoginPanel
-                merchantId={merchantId}
-                visitorId={visitorId}
-                brandName={brandName}
-                onSuccess={() => session.refetch()}
-              />
-            </div>
-            <p className="mt-3 text-center text-xs text-chat-muted">
+            <CustomerLoginPanel
+              merchantId={merchantId}
+              visitorId={visitorId}
+              brandName={brandName}
+              onSuccess={() => session.refetch()}
+            />
+            <p className="mt-3 text-center text-xs text-muted-foreground">
               يجب تسجيل الدخول لعرض المحادثات والوصول إلى الطلبات.
             </p>
           </div>
         )}
 
         {initErr && (
-          <div className="rounded-2xl border border-destructive/50 bg-destructive/15 p-3 text-sm text-destructive-foreground">
+          <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
             {initErr}
           </div>
         )}
 
         {loggedIn && (
-          <div className="flex-1 space-y-3 overflow-y-auto py-2">
-            {messages.length === 0 && !initErr && (
-              <div className="grid place-items-center gap-3 py-14 text-center">
-                <span className="grid h-14 w-14 place-items-center rounded-3xl bg-chat-accent/15 text-chat-accent">
-                  <MessageCircle className="h-6 w-6" />
-                </span>
-                <p className="text-sm text-chat-muted">
-                  ابدأ المحادثة بكتابة رسالتك في الأسفل
-                  {products.length > 0 ? "، أو اختر منتجًا من الشريط بالأعلى." : "."}
-                </p>
-              </div>
-            )}
-            {messages.map((m, i) => (
-              <MessageBubble
-                key={m.id ?? i}
-                role={m.role}
-                content={m.content}
-                attachments={m.attachments}
-              />
-            ))}
-            <div ref={bottomRef} />
-          </div>
+        <div className="flex-1 space-y-3 overflow-y-auto py-2">
+          {messages.length === 0 && !initErr && (
+            <div className="grid place-items-center py-12 text-center text-sm text-muted-foreground">
+              ابدأ المحادثة بكتابة رسالتك في الأسفل.
+            </div>
+          )}
+          {messages.map((m, i) => (
+            <MessageBubble
+              key={m.id ?? i}
+              role={m.role}
+              content={m.content}
+              attachments={m.attachments}
+            />
+          ))}
+          <div ref={bottomRef} />
+        </div>
         )}
 
         {loggedIn && (
-          <div className="sticky bottom-0 mt-2 rounded-3xl border border-chat-line bg-chat-ink/85 p-2.5 backdrop-blur-xl sm:p-3">
-            {pendingFile && (
-              <div className="mb-2 flex items-center gap-2 rounded-2xl border border-chat-line bg-chat-panel/70 p-2">
-                <img
-                  src={pendingFile.preview}
-                  alt="معاينة الصورة المرفقة"
-                  className="h-14 w-14 shrink-0 rounded-xl object-cover"
-                />
-                <div className="min-w-0 flex-1 truncate text-xs text-chat-muted">
-                  {pendingFile.file.name}
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="shrink-0 text-chat-muted hover:bg-white/10 hover:text-chat-foreground"
-                  onClick={clearPendingFile}
-                  disabled={uploading}
-                  aria-label="إزالة الصورة"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-            {uploadErr && (
-              <div className="mb-2 rounded-xl border border-destructive/50 bg-destructive/15 px-3 py-2 text-xs text-destructive-foreground">
-                {uploadErr}
-              </div>
-            )}
-            {locErr && (
-              <div className="mb-2 rounded-xl border border-destructive/50 bg-destructive/15 px-3 py-2 text-xs text-destructive-foreground">
-                {locErr}
-              </div>
-            )}
-
-            <div className="flex items-end gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => pickFile(e.target.files?.[0])}
+        <div className="sticky bottom-0 mt-2 border-t bg-background/80 py-3 backdrop-blur">
+          {pendingFile && (
+            <div className="mb-2 flex items-center gap-2 rounded-xl border border-border/60 bg-background/70 p-2">
+              <img
+                src={pendingFile.preview}
+                alt="معاينة الصورة المرفقة"
+                className="h-14 w-14 rounded-lg object-cover"
               />
-              <Textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    send();
-                  }
-                }}
-                placeholder="اكتب رسالتك..."
-                rows={1}
-                className="min-h-[48px] resize-none rounded-2xl border-chat-line bg-chat-panel/70 text-chat-foreground placeholder:text-chat-muted focus-visible:ring-chat-accent/60"
-                disabled={disabled}
-              />
+              <div className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+                {pendingFile.file.name}
+              </div>
               <Button
-                onClick={send}
-                disabled={disabled || uploading || (!input.trim() && !pendingFile)}
+                type="button"
+                variant="ghost"
                 size="icon"
-                className="h-12 w-12 shrink-0 rounded-2xl bg-chat-accent text-chat-accent-foreground hover:bg-chat-accent/90"
-                aria-label="إرسال"
+                onClick={clearPendingFile}
+                disabled={uploading}
+                aria-label="إزالة الصورة"
               >
-                <Send className="h-5 w-5" />
+                <X className="h-4 w-4" />
               </Button>
             </div>
-
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              <ChatChip
-                onClick={() => fileInputRef.current?.click()}
-                disabled={disabled || uploading}
-                icon={uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Paperclip className="h-3.5 w-3.5" />}
-                label="صورة"
-              />
-              <ChatChip
-                onClick={() => void shareLocation(false)}
-                disabled={disabled || locBusy || liveSharing}
-                icon={locBusy && !liveSharing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MapPin className="h-3.5 w-3.5" />}
-                label="موقعي"
-              />
-              {liveSharing ? (
-                <ChatChip
-                  onClick={() => void stopLiveSharing()}
-                  icon={<Square className="h-3.5 w-3.5" />}
-                  label="إيقاف الموقع الحي"
-                  tone="danger"
-                />
-              ) : (
-                <ChatChip
-                  onClick={() => void startLiveSharing()}
-                  disabled={disabled || locBusy}
-                  icon={<Radio className="h-3.5 w-3.5" />}
-                  label="موقع حي"
-                />
-              )}
-              {liveSharing && (
-                <span className="flex items-center gap-1 text-[11px] text-chat-muted">
-                  <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-chat-accent" />
-                  جاري تحديث موقعك
-                </span>
-              )}
+          )}
+          {uploadErr && (
+            <div className="mb-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {uploadErr}
             </div>
+          )}
+          {locErr && (
+            <div className="mb-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {locErr}
+            </div>
+          )}
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              onClick={() => void shareLocation(false)}
+              disabled={disabled || locBusy || liveSharing}
+            >
+              {locBusy && !liveSharing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <MapPin className="h-4 w-4" />
+              )}
+              إرسال موقعي الحالي
+            </Button>
+            {liveSharing ? (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                className="gap-1"
+                onClick={() => void stopLiveSharing()}
+              >
+                <Square className="h-4 w-4" />
+                إيقاف المشاركة الحية
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="gap-1"
+                onClick={() => void startLiveSharing()}
+                disabled={disabled || locBusy}
+              >
+                <Radio className="h-4 w-4" />
+                مشاركة الموقع الحي
+              </Button>
+            )}
+            {liveSharing && (
+              <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+                جاري تحديث موقعك تلقائياً
+              </span>
+            )}
           </div>
+          <div className="flex items-end gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => pickFile(e.target.files?.[0])}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-[52px] w-[52px] shrink-0"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled || uploading}
+              aria-label="إرفاق صورة"
+              title="إرفاق صورة"
+            >
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+            </Button>
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              placeholder="اكتب رسالتك..."
+              rows={2}
+              className="min-h-[52px] resize-none"
+              disabled={disabled}
+            />
+            <Button
+              onClick={send}
+              disabled={disabled || uploading || (!input.trim() && !pendingFile)}
+              className="gap-1"
+            >
+              <Send className="h-4 w-4" />
+              إرسال
+            </Button>
+          </div>
+        </div>
         )}
+
       </main>
     </div>
   );
 }
 
-function ChatChip({
-  onClick, disabled, icon, label, tone = "default",
-}: {
-  onClick: () => void;
-  disabled?: boolean;
-  icon: ReactNode;
-  label: string;
-  tone?: "default" | "danger";
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-medium transition disabled:opacity-40 ${
-        tone === "danger"
-          ? "border-destructive/50 bg-destructive/15 text-destructive-foreground"
-          : "border-chat-line bg-white/5 text-chat-muted hover:bg-chat-accent/15 hover:text-chat-foreground"
-      }`}
-    >
-      {icon}
-      {label}
-    </button>
-  );
-}
-
-/** Expandable in-chat product rail: horizontal strip → full grid. */
-function ProductRail({
-  products, onPick,
-}: {
-  products: { id: string; name: string; price: number | null; currency: string | null; images: string[] }[];
-  onPick: (name: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div className="border-t border-chat-line bg-chat-ink/60">
-      <div className="mx-auto w-full max-w-3xl px-3 py-2 sm:px-4">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
-          <div className="flex min-w-0 items-center gap-2 text-[11px] font-semibold text-chat-muted">
-            <ShoppingBag className="h-3.5 w-3.5 shrink-0 text-chat-accent" />
-            <span className="truncate">منتجات المتجر ({products.length})</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-chat-line bg-white/5 px-2.5 py-1 text-[11px] text-chat-muted transition hover:bg-chat-accent/15 hover:text-chat-foreground"
-          >
-            {open ? "طي" : "توسيع"}
-            {open ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          </button>
-        </div>
-
-        {open ? (
-          <div className="mt-2 grid max-h-[45vh] grid-cols-2 gap-2 overflow-y-auto pb-1 sm:grid-cols-3">
-            {products.map((p) => (
-              <ProductTile key={p.id} product={p} onPick={onPick} expanded />
-            ))}
-          </div>
-        ) : (
-          <div className="mt-2 flex snap-x gap-2 overflow-x-auto pb-1">
-            {products.map((p) => (
-              <ProductTile key={p.id} product={p} onPick={onPick} />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ProductTile({
-  product, onPick, expanded = false,
-}: {
-  product: { name: string; price: number | null; currency: string | null; images: string[] };
-  onPick: (name: string) => void;
-  expanded?: boolean;
-}) {
-  const img = product.images?.[0];
-  return (
-    <button
-      type="button"
-      onClick={() => onPick(product.name)}
-      className={`group flex snap-start items-center gap-2 rounded-2xl border border-chat-line bg-chat-panel/60 p-1.5 text-right transition hover:border-chat-accent/60 hover:bg-chat-accent/10 ${
-        expanded ? "w-full" : "w-[168px] shrink-0"
-      }`}
-    >
-      {img ? (
-        <img src={img} alt={product.name} loading="lazy" className="h-11 w-11 shrink-0 rounded-xl object-cover" />
-      ) : (
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-chat-accent/15 text-chat-accent">
-          <ShoppingBag className="h-4 w-4" />
-        </span>
-      )}
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[11px] font-semibold text-chat-foreground">{product.name}</span>
-        <span className="block truncate text-[11px] text-chat-accent">
-          {product.price != null ? `${product.price} ${product.currency ?? ""}` : "اسأل عن السعر"}
-        </span>
-      </span>
-    </button>
-  );
-}
-
 const BUBBLE_THEME = {
-  userBubble: "bg-chat-accent text-chat-accent-foreground rounded-br-md",
-  userAvatar: "bg-chat-accent text-chat-accent-foreground",
+  userBubble: "bg-primary text-primary-foreground rounded-tr-sm",
+  userAvatar: "bg-primary text-primary-foreground",
   assistantBubble:
-    "bg-chat-panel/80 border border-chat-line text-chat-foreground rounded-bl-md",
-  assistantAvatar: "bg-white/10 text-chat-accent",
+    "bg-background border border-border/60 text-foreground rounded-tl-sm",
+  assistantAvatar: "bg-muted text-foreground",
 };
 
 function MessageBubble({
@@ -826,13 +709,13 @@ function MessageBubble({
   const media = all.filter((a) => a.kind !== "location");
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-      <div className={`flex max-w-[88%] items-end gap-2 sm:max-w-[80%] ${isUser ? "flex-row-reverse" : ""}`}>
-        <div className={`grid h-8 w-8 shrink-0 place-items-center rounded-2xl text-xs ${
+      <div className={`flex max-w-[85%] items-start gap-2 ${isUser ? "flex-row-reverse" : ""}`}>
+        <div className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs ${
           isUser ? theme.userAvatar : theme.assistantAvatar
         }`}>
-          {isUser ? <User2 className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
+          {isUser ? <User2 className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
         </div>
-        <div className={`space-y-2 rounded-3xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap shadow-elegant ${
+        <div className={`space-y-2 rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap leading-relaxed shadow-sm ${
           isUser ? theme.userBubble : theme.assistantBubble
         }`}>
           {media.length > 0 && (
@@ -843,7 +726,7 @@ function MessageBubble({
                     src={a.url}
                     alt={a.name || "صورة مرفقة"}
                     loading="lazy"
-                    className="max-h-56 w-full rounded-2xl object-cover"
+                    className="max-h-56 w-full rounded-xl object-cover"
                   />
                 </a>
               ))}
@@ -857,18 +740,18 @@ function MessageBubble({
                 href={mapsUrl(a.lat, a.lng)}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-2 rounded-2xl border border-chat-line bg-black/10 px-3 py-2 no-underline"
+                className="flex items-center gap-2 rounded-xl border border-border/50 bg-background/60 px-3 py-2 text-foreground no-underline"
               >
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white/10">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-muted">
                   {live ? (
-                    <Radio className="h-4 w-4 animate-pulse text-chat-accent" />
+                    <Radio className="h-4 w-4 animate-pulse text-emerald-600" />
                   ) : (
                     <MapPin className="h-4 w-4" />
                   )}
                 </span>
                 <span className="min-w-0">
                   <span className="block text-xs font-semibold">{formatLocationSummary(a)}</span>
-                  <span className="block text-[11px] opacity-70">
+                  <span className="block text-[11px] text-muted-foreground">
                     فتح في الخرائط
                     {a.accuracy != null ? ` · دقة ±${a.accuracy}م` : ""}
                   </span>
@@ -882,5 +765,4 @@ function MessageBubble({
     </div>
   );
 }
-
 
