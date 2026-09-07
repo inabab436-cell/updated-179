@@ -59,7 +59,21 @@
   --color-brand-teal: var(--brand-teal);
   --color-brand-violet: var(--brand-violet);
   --color-brand-blue: var(--brand-blue);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-chat-ink: var(--chat-ink);
+  --color-chat-panel: var(--chat-panel);
+  --color-chat-line: var(--chat-line);
+  --color-chat-accent: var(--chat-accent);
+  --color-chat-accent-foreground: var(--chat-accent-foreground);
+  --color-chat-muted: var(--chat-muted);
+  --color-chat-foreground: var(--chat-foreground);
 }
+
 
 :root {
   --radius: 0.875rem;
